@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+results/*.csv
+data/corpus/*.faiss
+data/corpus/*.passages.txt
+.pytest_cache/

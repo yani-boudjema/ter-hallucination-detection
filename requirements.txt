@@ -1,0 +1,33 @@
+# --- Coeur ML / LLM ---
+torch>=2.1.0
+transformers>=4.40.0
+accelerate>=0.27.0
+bitsandbytes>=0.43.0          # quantization 4-bit (GPU only)
+
+# --- RAG ---
+langchain>=0.1.16
+langchain-community>=0.0.34
+faiss-cpu>=1.8.0              # remplacer par faiss-gpu si dispo sur le cluster
+sentence-transformers>=2.6.1
+
+# --- Données / benchmarks ---
+datasets>=2.18.0
+wikipedia>=1.4.0              # récupération de passages Wikipedia si pas de dump local
+
+# --- NLI (self-consistency) ---
+# cross-encoder/nli-deberta-v3-large est chargé via sentence-transformers/transformers, pas de lib à part
+
+# --- Analyse / stats ---
+numpy>=1.26.0
+pandas>=2.2.0
+scipy>=1.11.0                 # spearmanr
+scikit-learn>=1.4.0           # precision_recall_fscore_support
+
+# --- Visualisation ---
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# --- Utilitaires ---
+pyyaml>=6.0.1
+tqdm>=4.66.0
+python-dotenv>=1.0.1

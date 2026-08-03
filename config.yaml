@@ -1,0 +1,83 @@
+# =========================================================================
+# Configuration centrale du projet TER — Hallucination Detection & Reliability
+# Toutes les valeurs ci-dessous reprennent exactement les choix décrits
+# dans les rapports mensuels 1 et 2 (mêmes hyperparamètres, mêmes seuils).
+# =========================================================================
+
+project:
+  name: "TER-Hallucination-Detection"
+  author: "Yani Boudjema"
+  seed: 42
+
+# -------------------------------------------------------------------------
+# Modèles évalués (rapport 1, section 3.2 — Table 2)
+# Utiliser les checkpoints "Instruct" pour un comportement chat cohérent.
+# -------------------------------------------------------------------------
+models:
+  mistral-7b:
+    hf_id: "mistralai/Mistral-7B-Instruct-v0.3"
+    quantization: "4bit"          # 4bit | 8bit | none
+  llama-3-8b:
+    hf_id: "meta-llama/Meta-Llama-3-8B-Instruct"   # nécessite un accès HF (licence Meta)
+    quantization: "4bit"
+  gemma-2-9b:
+    hf_id: "google/gemma-2-9b-it"
+    quantization: "4bit"
+
+# -------------------------------------------------------------------------
+# Benchmarks (rapport 1, section 3.1)
+# -------------------------------------------------------------------------
+benchmarks:
+  truthfulqa:
+    hf_dataset: "truthful_qa"
+    hf_subset: "generation"
+    n_questions: 817
+  halueval:
+    hf_dataset: "pminervini/HaluEval"     # sous-ensemble QA (5000 exemples, rapport 2 §3.2)
+    hf_subset: "qa"
+    n_examples: 5000
+
+# -------------------------------------------------------------------------
+# Pipeline 1 — Self-Consistency Checking (rapport 2, §2.1)
+# -------------------------------------------------------------------------
+self_consistency:
+  n_generations: 20          # N=20 dans le rapport ; utiliser 10 pour un run rapide/CI
+  temperature: 0.7
+  nli_model: "cross-encoder/nli-deberta-v3-large"
+  threshold_tau: 0.5         # SC-Score < tau => halluciné
+  batch_size: 8
+
+# -------------------------------------------------------------------------
+# Pipeline 2 — Confidence Calibration (rapport 2, §2.2)
+# -------------------------------------------------------------------------
+confidence_calibration:
+  verbalized_prompt: >
+    On a scale from 0 to 100, how confident are you in your previous answer?
+    Answer with a single integer.
+  entropy_top_k_tokens: null   # null = tous les tokens générés
+
+# -------------------------------------------------------------------------
+# Pipeline 3 — RAG (rapport 2, §2.3)
+# -------------------------------------------------------------------------
+rag:
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  chunk_size_tokens: 512
+  top_k: 5
+  index_type: "IndexFlatIP"     # similarité cosinus (vecteurs normalisés)
+  corpus_source: "wikipedia_sample"   # cf. README pour construire un corpus réel
+
+# -------------------------------------------------------------------------
+# Pipeline 4 — Outil de scoring factuel (rapport 2, §4)
+# -------------------------------------------------------------------------
+factual_scoring:
+  claim_extraction_model: "mistral-7b"
+  retrieval_top_k: 3
+  nli_model: "cross-encoder/nli-deberta-v3-large"
+
+# -------------------------------------------------------------------------
+# Chemins
+# -------------------------------------------------------------------------
+paths:
+  results_dir: "results"
+  corpus_dir: "data/corpus"
+  faiss_index_path: "data/corpus/faiss_index"
