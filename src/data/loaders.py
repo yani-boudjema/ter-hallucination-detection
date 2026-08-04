@@ -28,6 +28,9 @@ class QAExample:
 
 
 def load_truthfulqa(n_questions: int | None = None) -> list[QAExample]:
+    # "truthful_qa" (sans namespace) est un alias legacy qui casse avec les
+    # versions récentes de huggingface_hub. Le dataset réel (converti en
+    # Parquet) vit sous "truthfulqa/truthful_qa".
     ds = load_dataset("truthfulqa/truthful_qa", "generation", split="validation")
     if n_questions:
         ds = ds.select(range(min(n_questions, len(ds))))

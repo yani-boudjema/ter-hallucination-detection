@@ -1,7 +1,36 @@
+# Environnements virtuels
 venv/
+env/
+.venv/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Données volumineuses générées (à ne jamais commit sur git)
 results/*.csv
+results/figures/*.png
 data/corpus/*.faiss
 data/corpus/*.passages.txt
-.pytest_cache/
+data/corpus/*.pkl
+
+# Modèles téléchargés localement (si jamais mis en cache dans le repo par erreur)
+*.safetensors
+*.bin
+*.gguf
+
+# Environnement / secrets
+.env
+*.token
+
+# OS / éditeurs
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Notebooks : garder le .ipynb mais pas les checkpoints
+.ipynb_checkpoints/

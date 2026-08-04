@@ -71,6 +71,37 @@ def test_sc_score_threshold_classification():
     assert (0.6 < tau) is False  # fiable
 
 
+def test_mcnemar_identical_methods_not_significant():
+    """Si les deux méthodes se trompent/réussissent exactement pareil,
+    aucune différence discordante -> non significatif."""
+    from src.evaluation.significance import mcnemar_test
+    y_true = [True, False, True, False, True]
+    y_pred_a = [True, False, True, False, True]
+    y_pred_b = [True, False, True, False, True]
+    result = mcnemar_test(y_true, y_pred_a, y_pred_b)
+    assert result.statistic == 0
+    assert result.significant_at_0_05 is False
+
+
+def test_bootstrap_ci_contains_point_estimate():
+    from src.evaluation.significance import bootstrap_f1_ci
+    y_true = [True, True, False, False, True, False, True, False] * 5
+    y_pred = [True, False, False, False, True, True, True, False] * 5
+    result = bootstrap_f1_ci(y_true, y_pred, n_bootstrap=200)
+    assert result.ci_lower <= result.point_estimate <= result.ci_upper
+
+
+def test_prompting_build_prompt_strategies_differ():
+    from src.pipelines.prompting_analysis import build_prompt
+    question = "What is the capital of France?"
+    zero = build_prompt(question, "zero_shot")
+    few = build_prompt(question, "few_shot")
+    cot = build_prompt(question, "chain_of_thought")
+    assert zero == question
+    assert "Q:" in few and question in few
+    assert "step by step" in cot.lower()
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])

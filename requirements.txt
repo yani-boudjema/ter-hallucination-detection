@@ -11,7 +11,7 @@ faiss-cpu>=1.8.0              # remplacer par faiss-gpu si dispo sur le cluster
 sentence-transformers>=2.6.1
 
 # --- Données / benchmarks ---
-datasets>=2.18.0
+datasets>=2.19.0
 wikipedia>=1.4.0              # récupération de passages Wikipedia si pas de dump local
 
 # --- NLI (self-consistency) ---

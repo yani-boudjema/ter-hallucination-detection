@@ -12,32 +12,51 @@ le prototype d'outil de scoring factuel.
 ```
 ter-hallucination-detection/
 ├── README.md                        <- ce fichier
+├── .gitignore                       <- exclut venv, caches, gros fichiers générés
 ├── requirements.txt                 <- dépendances Python
 ├── config.yaml                      <- TOUS les hyperparamètres (modèles, N, T, tau, top_k...)
 ├── data/
 │   └── corpus/                      <- index FAISS généré (créé par build_faiss_index.py)
-├── results/                         <- CSV de résultats générés par les scripts (créé automatiquement)
+├── results/                         <- CSV + figures générés par les scripts
+│   └── figures/                     <- Figure 1 (F1) et Figure 2 (prompting), générées automatiquement
 ├── src/
 │   ├── config.py                    <- chargement typé de config.yaml
 │   ├── models.py                    <- wrapper LLM (chargement, génération, log-probs)
 │   ├── pipelines/
 │   │   ├── self_consistency.py      <- Pipeline 1 (formule SC-Score, rapport 2 §2.1)
 │   │   ├── confidence_calibration.py<- Pipeline 2 (entropie + confiance verbalisée, §2.2)
-│   │   ├── rag.py                   <- Pipeline 3 (FAISS + LangChain-style RAG, §2.3)
-│   │   └── factual_scoring.py       <- Outil de scoring factuel prototype (§4)
+│   │   ├── rag.py                   <- Pipeline 3 (FAISS + RAG, §2.3)
+│   │   ├── factual_scoring.py       <- Outil de scoring factuel prototype (§4)
+│   │   └── prompting_analysis.py    <- Analyse zero-shot/few-shot/CoT (§3.5, Table 4)
 │   ├── data/
 │   │   └── loaders.py               <- chargement TruthfulQA / HaluEval
 │   └── evaluation/
-│       └── metrics.py               <- precision/recall/F1, taux hallucination, Spearman
+│       ├── metrics.py               <- precision/recall/F1, taux hallucination, Spearman
+│       ├── significance.py          <- McNemar + bootstrap CI (objectif Mois 3, §6.2)
+│       └── report_tables.py         <- agrège les CSV en tableaux markdown (Tables 1-5)
 ├── scripts/                         <- points d'entrée exécutables (CLI)
 │   ├── build_faiss_index.py         <- ÉTAPE 0 : construit l'index RAG
 │   ├── run_self_consistency.py      <- reproduit Table 1 & 2
 │   ├── run_confidence_calibration.py<- reproduit Table 5
 │   ├── run_rag.py                   <- reproduit Table 3
-│   └── run_factual_scoring.py       <- démo interactive (utile pour la soutenance)
+│   ├── run_prompting_analysis.py    <- reproduit Table 4 & données Figure 2
+│   ├── run_factual_scoring.py       <- démo interactive (utile pour la soutenance)
+│   └── generate_report_figures.py   <- DERNIÈRE ÉTAPE : génère Figures 1/2 + tableaux markdown finaux
 └── tests/
     └── test_metrics.py              <- tests unitaires (sans GPU, déjà validés ✓)
 ```
+
+## Statut du projet (mis à jour)
+
+| Pipeline / Livrable | Code écrit | Testé avec un vrai modèle |
+|---|---|---|
+| Self-Consistency (Pipeline 1) | ✅ | ✅ (Mistral-7B, TruthfulQA) |
+| Confidence Calibration (Pipeline 2) | ✅ | ⏳ à faire |
+| RAG (Pipeline 3) | ✅ | ⏳ à faire |
+| Outil de scoring factuel | ✅ | ⏳ à faire |
+| Analyse du prompting (Table 4, Fig. 2) | ✅ | ⏳ à faire |
+| Agrégation résultats + figures | ✅ | ⏳ à lancer une fois les CSV disponibles |
+| Tests de significativité (McNemar, bootstrap) | ✅ (prêt pour Mois 3) | ✅ testé sur données synthétiques |
 
 ## 2. Prérequis matériels — lis ceci avant de commencer
 
@@ -127,6 +146,27 @@ python scripts/run_factual_scoring.py --model mistral-7b
 → reproduit l'exemple "Marie Curie" du rapport 2 (§4.2) avec décomposition
 en affirmations atomiques + vérification NLI. Très utile pour la démo live
 en soutenance.
+
+### Étape F — Analyse du prompting (Table 4, Figure 2)
+
+```bash
+python scripts/run_prompting_analysis.py --model mistral-7b --limit 20
+```
+→ compare zero-shot / few-shot / chain-of-thought sur le même jeu de
+questions, reproduit la Table 4 du rapport 2 directement dans le terminal.
+
+### Étape G — Générer les figures et tableaux finaux pour le rapport
+
+Une fois que tu as lancé plusieurs des scripts ci-dessus (au moins un modèle,
+idéalement les 3), génère automatiquement les figures et tableaux à copier
+dans le rapport final :
+
+```bash
+python scripts/generate_report_figures.py --models mistral-7b llama-3-8b gemma-2-9b
+```
+→ produit `results/figures/figure1_f1_*.png`, `results/figures/figure2_prompting_*.png`,
+et `results/aggregated_tables.md` (toutes les tables en markdown, copiables
+directement dans le rapport final — plus besoin de recopier les chiffres à la main).
 
 ## 5. Tests (déjà validés dans cet environnement, sans GPU)
 
