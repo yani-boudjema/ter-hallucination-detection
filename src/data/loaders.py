@@ -28,7 +28,7 @@ class QAExample:
 
 
 def load_truthfulqa(n_questions: int | None = None) -> list[QAExample]:
-    ds = load_dataset("truthful_qa", "generation", split="validation")
+    ds = load_dataset("truthfulqa/truthful_qa", "generation", split="validation")
     if n_questions:
         ds = ds.select(range(min(n_questions, len(ds))))
 
