@@ -41,7 +41,7 @@ benchmarks:
 # Pipeline 1 — Self-Consistency Checking (rapport 2, §2.1)
 # -------------------------------------------------------------------------
 self_consistency:
-  n_generations: 20          # N=20 dans le rapport ; utiliser 10 pour un run rapide/CI
+  n_generations: 10          # N=20 dans le rapport ; utiliser 10 pour un run rapide/CI
   temperature: 0.7
   nli_model: "cross-encoder/nli-deberta-v3-large"
   threshold_tau: 0.5         # SC-Score < tau => halluciné
