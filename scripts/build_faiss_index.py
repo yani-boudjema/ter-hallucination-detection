@@ -25,9 +25,29 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import wikipedia
+import requests
 from src.config import load_config
 from src.pipelines.rag import WikipediaFaissIndex
+
+WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
+# Wikipedia exige un User-Agent identifiable depuis 2023 ; sans ça, l'API
+# renvoie parfois une page HTML (d'où l'erreur "Expecting value: line 1
+# column 1" quand on essaie de la parser comme du JSON).
+HEADERS = {"User-Agent": "TER-HallucinationDetection/1.0 (yani.boudjema@etu.univ-st-etienne.fr)"}
+
+
+def fetch_wikipedia_extract(title: str) -> str:
+    params = {
+        "action": "query", "prop": "extracts", "explaintext": True,
+        "titles": title, "format": "json", "redirects": 1,
+    }
+    response = requests.get(WIKIPEDIA_API_URL, params=params, headers=HEADERS, timeout=20)
+    response.raise_for_status()
+    pages = response.json()["query"]["pages"]
+    page = next(iter(pages.values()))
+    if "missing" in page:
+        raise ValueError(f"Page introuvable: {title}")
+    return page.get("extract", "")
 
 
 def chunk_text(text: str, chunk_size_tokens: int = 512) -> list[str]:
@@ -40,9 +60,12 @@ def fetch_sample_corpus(topics: list[str], chunk_size_tokens: int) -> list[str]:
     passages = []
     for topic in topics:
         try:
-            page = wikipedia.page(topic, auto_suggest=True)
-            passages.extend(chunk_text(page.content, chunk_size_tokens))
-            print(f"  + {topic}: {len(page.content.split())} mots")
+            text = fetch_wikipedia_extract(topic)
+            if not text:
+                print(f"  ! Page vide pour '{topic}'")
+                continue
+            passages.extend(chunk_text(text, chunk_size_tokens))
+            print(f"  + {topic}: {len(text.split())} mots")
         except Exception as e:
             print(f"  ! Échec sur '{topic}': {e}")
     return passages
@@ -71,6 +94,11 @@ def main():
         )
 
     print(f"[2/2] Indexation FAISS de {len(passages)} passages avec {cfg.rag.embedding_model} ...")
+    if not passages:
+        print("ERREUR: aucun passage récupéré, impossible de construire l'index. "
+              "Vérifie ta connexion internet ou réessaie (l'API Wikipedia peut "
+              "temporairement rate-limiter).")
+        sys.exit(1)
     index = WikipediaFaissIndex(cfg.rag.embedding_model)
     index.build(passages)
 
