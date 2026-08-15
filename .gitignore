@@ -34,3 +34,4 @@ data/corpus/*.pkl
 
 # Notebooks : garder le .ipynb mais pas les checkpoints
 .ipynb_checkpoints/
+.Rhistory

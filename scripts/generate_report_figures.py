@@ -20,70 +20,127 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from src.config import load_config
-from src.evaluation.metrics import detection_metrics
+from src.evaluation.metrics import detection_metrics, hallucination_rate
 from src.evaluation.report_tables import generate_full_report
 
 
-def figure1_f1_comparison(results_dir: Path, models: list[str], benchmark: str, out_path: Path):
-    """Reproduit la Figure 1 du rapport 2 : F1 par modèle x méthode.
-
-    NB : dans le code actuel, un seul CSV self_consistency_*.csv est produit
-    par (modèle, benchmark) — pour comparer plusieurs *méthodes* de détection
-    dans le même graphique (comme la Figure 1 originale : self-consistency vs
-    confidence calib. vs RAG), il faut avoir lancé les 3 pipelines pour un
-    même modèle/benchmark. On lit ce qui est disponible et on ignore le reste.
-    """
-    methods_data: dict[str, list[float]] = {"Self-Consistency": [], "Confidence Calib.": [], "RAG": []}
-    available_models = []
-
+def figure_self_consistency_f1(results_dir: Path, models: list[str], benchmark: str, out_path: Path):
+    """F1 de détection par modèle (self-consistency uniquement — la seule
+    méthode ayant un vrai F1 de classification binaire comparable). RAG et
+    calibration ne sont PAS des classifieurs au même sens et ne doivent pas
+    être comparés sur la même échelle F1 (erreur corrigée : l'ancienne
+    version de cette figure comparait des choses non comparables)."""
+    labels, f1_scores = [], []
     for model in models:
-        sc_path = results_dir / f"self_consistency_{model}_{benchmark}.csv"
-        if not sc_path.exists():
+        path = results_dir / f"self_consistency_{model}_{benchmark}.csv"
+        if not path.exists():
             continue
-        available_models.append(model)
-
-        with open(sc_path, newline="", encoding="utf-8") as f:
+        with open(path, newline="", encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
         y_true = [r["actual_hallucinated"] == "True" for r in rows]
         y_pred = [r["predicted_hallucinated"] == "True" for r in rows]
-        methods_data["Self-Consistency"].append(detection_metrics(y_true, y_pred).f1)
+        labels.append(model)
+        f1_scores.append(detection_metrics(y_true, y_pred).f1)
 
-        # RAG : on approx le F1 de détection comme detection_metrics sur (hallucinated_no_rag vs hallucinated_rag)
-        rag_path = results_dir / f"rag_{model}_{benchmark}.csv"
-        if rag_path.exists():
-            with open(rag_path, newline="", encoding="utf-8") as f:
-                rag_rows = list(csv.DictReader(f))
-            y_true_rag = [r["hallucinated_no_rag"] == "True" for r in rag_rows]
-            y_pred_rag = [r["hallucinated_rag"] == "True" for r in rag_rows]
-            methods_data["RAG"].append(detection_metrics(y_true_rag, y_pred_rag).f1 if rag_rows else float("nan"))
-        else:
-            methods_data["RAG"].append(float("nan"))
-
-        methods_data["Confidence Calib."].append(float("nan"))  # calibration n'a pas de F1 direct (cf. Table 5)
-
-    if not available_models:
-        print(f"[figure1] Aucune donnée disponible pour benchmark={benchmark}, figure non générée.")
+    if not labels:
+        print(f"[figure_sc_f1] Aucune donnée pour benchmark={benchmark}, figure non générée.")
         return
 
-    x = np.arange(len(available_models))
-    width = 0.25
-    fig, ax = plt.subplots(figsize=(8, 5))
-    for i, (method, values) in enumerate(methods_data.items()):
-        ax.bar(x + i * width, values, width, label=method)
-
+    fig, ax = plt.subplots(figsize=(7, 5))
+    bars = ax.bar(labels, f1_scores, color="#1f77b4")
+    ax.bar_label(bars, fmt="%.2f")
     ax.set_xlabel("Modèle")
-    ax.set_ylabel("F1 Score")
-    ax.set_title(f"Comparaison des F1 scores par modèle et méthode ({benchmark})")
-    ax.set_xticks(x + width)
-    ax.set_xticklabels(available_models)
-    ax.legend()
+    ax.set_ylabel("F1 Score (détection self-consistency)")
+    ax.set_title(f"F1 de détection par self-consistency, par modèle ({benchmark})")
     ax.set_ylim(0, 1.0)
     fig.tight_layout()
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
-    print(f"[figure1] Sauvegardée : {out_path}")
+    print(f"[figure_sc_f1] Sauvegardée : {out_path}")
+
+
+def figure_rag_impact(results_dir: Path, models: list[str], benchmark: str, out_path: Path):
+    """Taux d'hallucination avant/après RAG, par modèle — LE résultat le
+    plus marquant du projet (dégradation systématique sur 3/3 modèles avec
+    le corpus ciblé actuel). Figure dédiée pour bien le mettre en valeur."""
+    labels, rates_without, rates_with = [], [], []
+    for model in models:
+        path = results_dir / f"rag_{model}_{benchmark}.csv"
+        if not path.exists():
+            continue
+        with open(path, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+        y_without = [r["hallucinated_no_rag"] == "True" for r in rows]
+        y_with = [r["hallucinated_rag"] == "True" for r in rows]
+        labels.append(model)
+        rates_without.append(hallucination_rate(y_without))
+        rates_with.append(hallucination_rate(y_with))
+
+    if not labels:
+        print(f"[figure_rag] Aucune donnée pour benchmark={benchmark}, figure non générée.")
+        return
+
+    x = np.arange(len(labels))
+    width = 0.35
+    fig, ax = plt.subplots(figsize=(7, 5))
+    bars1 = ax.bar(x - width / 2, rates_without, width, label="Sans RAG", color="#1f77b4")
+    bars2 = ax.bar(x + width / 2, rates_with, width, label="Avec RAG", color="#d62728")
+    ax.bar_label(bars1, fmt="%.0f%%")
+    ax.bar_label(bars2, fmt="%.0f%%")
+    ax.set_xlabel("Modèle")
+    ax.set_ylabel("Taux d'hallucination (%)")
+    ax.set_title(f"Impact du RAG sur le taux d'hallucination, par modèle ({benchmark})")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0, max(max(rates_without), max(rates_with)) * 1.18)  # marge en haut pour les labels + légende
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=2, frameon=True)
+    fig.tight_layout()
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"[figure_rag] Sauvegardée : {out_path}")
+
+
+def figure_calibration(results_dir: Path, models: list[str], benchmark: str, out_path: Path):
+    """Corrélation de Spearman (confiance verbalisée vs exactitude), par modèle."""
+    from scipy.stats import spearmanr
+
+    labels, rhos = [], []
+    for model in models:
+        path = results_dir / f"calibration_{model}_{benchmark}.csv"
+        if not path.exists():
+            continue
+        with open(path, newline="", encoding="utf-8") as f:
+            rows = [r for r in csv.DictReader(f) if int(r["verbalized_confidence"]) >= 0]
+        if len(rows) < 2:
+            continue
+        confidences = [int(r["verbalized_confidence"]) for r in rows]
+        correctness = [int(r["is_correct"] == "True") for r in rows]
+        rho, _ = spearmanr(confidences, correctness)
+        labels.append(model)
+        rhos.append(rho)
+
+    if not labels:
+        print(f"[figure_calib] Aucune donnée pour benchmark={benchmark}, figure non générée.")
+        return
+
+    fig, ax = plt.subplots(figsize=(7, 5))
+    colors = ["#2ca02c" if r > 0 else "#d62728" for r in rhos]
+    bars = ax.bar(labels, rhos, color=colors)
+    ax.bar_label(bars, fmt="%.2f")
+    ax.axhline(0, color="black", linewidth=0.8)
+    ax.set_xlabel("Modèle")
+    ax.set_ylabel("Corrélation de Spearman (ρ)")
+    ax.set_title(f"Calibration de la confiance verbalisée, par modèle ({benchmark})")
+    fig.tight_layout()
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"[figure_calib] Sauvegardée : {out_path}")
 
 
 def figure2_prompting(results_dir: Path, model: str, out_path: Path):
@@ -136,7 +193,9 @@ def main():
     figures_dir = results_dir / "figures"
 
     for benchmark in args.benchmarks:
-        figure1_f1_comparison(results_dir, args.models, benchmark, figures_dir / f"figure1_f1_{benchmark}.png")
+        figure_self_consistency_f1(results_dir, args.models, benchmark, figures_dir / f"figure1_self_consistency_f1_{benchmark}.png")
+        figure_rag_impact(results_dir, args.models, benchmark, figures_dir / f"figure_rag_impact_{benchmark}.png")
+        figure_calibration(results_dir, args.models, benchmark, figures_dir / f"figure_calibration_{benchmark}.png")
 
     for model in args.models:
         figure2_prompting(results_dir, model, figures_dir / f"figure2_prompting_{model}.png")

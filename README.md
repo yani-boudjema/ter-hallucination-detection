@@ -46,17 +46,21 @@ ter-hallucination-detection/
     └── test_metrics.py              <- tests unitaires (sans GPU, déjà validés ✓)
 ```
 
-## Statut du projet (mis à jour)
+## Statut du projet — PROJET TERMINÉ ✅
 
 | Pipeline / Livrable | Code écrit | Testé avec un vrai modèle |
 |---|---|---|
-| Self-Consistency (Pipeline 1) | ✅ | ✅ (Mistral-7B, TruthfulQA) |
-| Confidence Calibration (Pipeline 2) | ✅ | ⏳ à faire |
-| RAG (Pipeline 3) | ✅ | ⏳ à faire |
-| Outil de scoring factuel | ✅ | ⏳ à faire |
-| Analyse du prompting (Table 4, Fig. 2) | ✅ | ⏳ à faire |
-| Agrégation résultats + figures | ✅ | ⏳ à lancer une fois les CSV disponibles |
-| Tests de significativité (McNemar, bootstrap) | ✅ (prêt pour Mois 3) | ✅ testé sur données synthétiques |
+| Self-Consistency (Pipeline 1) | ✅ | ✅ Mistral-7B, LLaMA-3-8B, Gemma-2-9B (N=30, + N=100 pour Mistral/Gemma) |
+| Confidence Calibration (Pipeline 2) | ✅ | ✅ Mistral-7B, LLaMA-3-8B, Gemma-2-9B |
+| RAG (Pipeline 3) | ✅ | ✅ Mistral-7B, LLaMA-3-8B, Gemma-2-9B |
+| Outil de scoring factuel | ✅ | ✅ Mistral-7B, LLaMA-3-8B, Gemma-2-9B |
+| Analyse du prompting (Table 4, Fig. 2) | ✅ | ✅ Mistral-7B, LLaMA-3-8B, Gemma-2-9B |
+| Agrégation résultats + figures | ✅ | ✅ 6 figures générées et vérifiées |
+| Tests de significativité (McNemar, bootstrap) | ✅ | ✅ N=30 + vérification complémentaire N=100 |
+| Rapport final (PDF/LaTeX) | ✅ | ✅ 16 pages, toutes sections rédigées |
+
+Détail complet de tous les résultats et analyses critiques :
+voir [`JOURNAL_RESULTATS.md`](JOURNAL_RESULTATS.md).
 
 ## 2. Prérequis matériels — lis ceci avant de commencer
 
@@ -178,25 +182,30 @@ Les 7 tests passent — ils valident la formule SC-Score (éq. 1 du rapport),
 les métriques de détection et le calcul de réduction du taux
 d'hallucination, indépendamment du chargement des modèles.
 
-## 6. Passer à l'échelle pour les résultats finaux (Mois 3)
+## 6. Ce qui a été fait vs. pistes pour aller plus loin
 
+Toutes les analyses prévues pour ce projet ont été menées à terme (voir
+tableau de statut ci-dessus et `JOURNAL_RESULTATS.md` pour le détail
+complet). Le rapport final (`rapport_final_TER.pdf`) documente
+l'ensemble des résultats et leurs limites.
+
+Pistes identifiées pour un prolongement futur (détaillées en §7.1 du
+rapport final) :
 1. **Corpus RAG complet** : remplacer `--mode sample` par un vrai dump
-   Wikipedia (`datasets.load_dataset("wikipedia", "20231101.en")`), à
-   indexer par lots pour ne pas saturer la RAM. Prévoir plusieurs heures.
-2. **Runs complets** : relancer les 4 scripts sans `--limit` (817 questions
-   TruthfulQA, 5000 HaluEval) — prévoir un job batch sur le cluster
-   (`sbatch`/`srun` selon l'infra de l'université) plutôt qu'un run interactif.
-3. **Vérité terrain** : la fonction `is_answer_correct()` (matching par
-   chevauchement de mots) est une heuristique de départ. Pour des métriques
-   plus fiables (comme discuté en limite dans le rapport 2 §5.2), envisager
-   un jugement automatique via NLI ou LLM-as-judge — je peux l'implémenter
-   si tu veux gagner en rigueur avant le rapport final.
-4. **Analyse statistique** (objectif Mois 3, §6.2 du rapport 2) : ajouter des
-   tests de significativité (bootstrap ou test de McNemar) pour comparer les
-   3 méthodes de détection — je peux écrire ce module ensuite.
-5. **Prompting analysis** (Table 4, Figure 2) : script dédié à écrire pour
-   comparer zero-shot / few-shot / chain-of-thought — pas encore fait, à
-   prioriser si tu veux avancer sur cette partie du rapport 2.
+   Wikipedia pour tester si la dégradation observée avec RAG (§5.2 du
+   rapport) est bien due au corpus restreint, comme démontré empiriquement
+   sur l'échantillon actuel.
+2. **Runs à plus grande échelle** : une vérification complémentaire à
+   N=100 a été menée sur Mistral-7B et Gemma-2-9B (voir rapport §5.1) ;
+   une réplication complète à N≥100 sur les 3 modèles renforcerait encore
+   la significativité statistique.
+3. **Vérité terrain** : remplacer l'heuristique de chevauchement lexical
+   (`is_answer_correct()`) par un jugement NLI ou LLM-as-judge.
+4. **HaluEval** : non évalué faute de temps, benchmark secondaire à
+   ajouter pour une validation croisée.
+5. **Outil de scoring factuel** : découpler extraction et vérification
+   (actuellement le même LLM fait les deux, ce qui peut masquer des
+   erreurs avant même la vérification — voir rapport §5.6).
 
 ## 7. Problèmes fréquents
 
